@@ -7,9 +7,7 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * Service para a lógica de negócio dos jogos.
- */
+
 @Service
 public class JogoService {
 

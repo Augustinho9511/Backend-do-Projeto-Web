@@ -20,8 +20,8 @@ public class Aposta {
     private String palpite;
 
 
-    @Column(name = "valor_aposta", precision = 10, scale = 2)
-    private BigDecimal valorAposta;
+    @Column(name = "valor", precision = 10, scale = 2)
+    private BigDecimal valor;
 
 
     @Column(name = "odd", precision = 10, scale = 2)
@@ -30,11 +30,13 @@ public class Aposta {
     @Column(name = "status")
     private String status;
 
-    private String timedefora;
+    private String timeFora;
 
-    private String timedecasa;
+    private String timeCasa;
 
     private String liga;
+
+    private String DataHorario;
 
     public Aposta() {
     }
@@ -64,12 +66,12 @@ public class Aposta {
         this.palpite = palpite;
     }
 
-    public BigDecimal getValorAposta() {
-        return valorAposta;
+    public BigDecimal getValor() {
+        return valor;
     }
 
-    public void setValorAposta(BigDecimal valorAposta) {
-        this.valorAposta = valorAposta;
+    public void setValor(BigDecimal valor) {
+        this.valor = valor;
     }
 
     public BigDecimal getOdd() {
@@ -88,6 +90,38 @@ public class Aposta {
         this.status = status;
     }
 
+
+    public String getDataHorario() {
+        return DataHorario;
+    }
+
+    public void setDataHorario(String dataHorario) {
+        DataHorario = dataHorario;
+    }
+
+    public String getLiga() {
+        return liga;
+    }
+
+    public void setLiga(String liga) {
+        this.liga = liga;
+    }
+
+    public String getTimedecasa() {
+        return timeCasa;
+    }
+
+    public void setTimecasa(String timeCasa) {
+        this.timeCasa = timeCasa;
+    }
+
+    public String getTimedefora() {
+        return timeFora;
+    }
+
+    public void setTimefora(String timeFora) {
+        this.timeFora = timeFora;
+    }
     @Override
     public String toString() {
         // Corrigido para evitar loop infinito com a relação Jogo
@@ -95,8 +129,11 @@ public class Aposta {
                 "apostaId=" + apostaId +
                 ", jogoId=" + (jogo != null ? jogo.getJogoId() : null) +
                 ", palpite='" + palpite + '\'' +
-                ", valorAposta=" + valorAposta +
+                ", valorAposta=" + valor +
                 ", odd=" + odd +
+                ", dataHorario='" + DataHorario + '\'' +
+                ", timeCasa='" + timeCasa + '\'' +
+                ", timeFora='" + timeFora + '\'' +
                 ", status='" + status + '\'' +
                 '}';
     }

@@ -35,8 +35,11 @@ public class ApostaService {
     public Aposta updateAposta(Long id, Aposta updatedAposta) {
         return apostaRepository.findById(id)
                 .map(aposta -> {
-                    // Atualiza apenas os campos que podem ser modificados pelo usuário
-                    aposta.setValorAposta(updatedAposta.getValorAposta());
+                    aposta.setTimecasa(updatedAposta.getTimedecasa());
+                    aposta.setTimefora(updatedAposta.getTimedefora());
+                    aposta.setDataHorario(updatedAposta.getDataHorario());
+                    aposta.setLiga(updatedAposta.getLiga());
+                    aposta.setValor(updatedAposta.getValor());
                     aposta.setPalpite(updatedAposta.getPalpite());
                     aposta.setStatus(updatedAposta.getStatus()); // Adicionado
                     aposta.setOdd(updatedAposta.getOdd()); // Adicionado

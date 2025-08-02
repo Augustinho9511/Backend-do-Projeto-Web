@@ -3,10 +3,7 @@ package MestredasApostas.model;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
-/**
- * Modelo de dados para jogo.
- * Representa a tabela 'jogos' no banco de dados.
- */
+
 @Entity
 @Table(name = "jogos")
 public class Jogo {

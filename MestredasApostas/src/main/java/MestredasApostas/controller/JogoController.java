@@ -7,10 +7,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-/**
- * Controller para gerenciar jogos.
- * Define os endpoints da API para jogos.
- */
+
 @RestController
 @RequestMapping("/api/jogos")
 public class JogoController {
