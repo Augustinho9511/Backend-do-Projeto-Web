@@ -1,6 +1,6 @@
 package MestredasApostas.service;
 
-import MestredasApostas.model.Jogo;
+import MestredasApostas.model.entity.Jogo;
 import MestredasApostas.repository.JogoRepository;
 import org.springframework.stereotype.Service;
 

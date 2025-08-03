@@ -1,6 +1,6 @@
 package MestredasApostas.controller;
 
-import MestredasApostas.model.Jogo;
+import MestredasApostas.model.entity.Jogo;
 import MestredasApostas.service.JogoService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

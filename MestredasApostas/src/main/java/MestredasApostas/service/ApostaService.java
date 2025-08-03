@@ -1,6 +1,7 @@
 package MestredasApostas.service;
 
-import MestredasApostas.model.Aposta;
+import MestredasApostas.model.dto.ApostaDTO;
+import MestredasApostas.model.entity.Aposta;
 import MestredasApostas.repository.ApostaRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,18 +26,28 @@ public class ApostaService {
     }
 
     @Transactional
-    public Aposta criarAposta(Aposta aposta) {
-        jogoService.findById(aposta.getJogo().getJogoId())
-                .orElseThrow(() -> new RuntimeException("Jogo não encontrado"));
-        return apostaRepository.save(aposta);
+    public ApostaDTO criarAposta(ApostaDTO apostaDTO) {
+
+        Aposta newAposta = new Aposta();
+        newAposta.setOdd(apostaDTO.getOdd());
+        newAposta.setLiga(apostaDTO.getLiga());
+        newAposta.setTimeCasa(apostaDTO.getTimeCasa());
+        newAposta.setTimeFora(apostaDTO.getTimeFora());
+        newAposta.setDataHorario(apostaDTO.getData());
+        newAposta.setPalpite(apostaDTO.getPalpite());
+        newAposta.setValor(apostaDTO.getValor());
+        newAposta.setValorCashOutRecebido(apostaDTO.getValorCashOutRecebido());
+        newAposta.setStatus(apostaDTO.getStatus());
+        apostaRepository.save(newAposta);
+        return apostaDTO;
     }
 
     @Transactional
     public Aposta updateAposta(Long id, Aposta updatedAposta) {
         return apostaRepository.findById(id)
                 .map(aposta -> {
-                    aposta.setTimecasa(updatedAposta.getTimedecasa());
-                    aposta.setTimefora(updatedAposta.getTimedefora());
+                    aposta.setTimeCasa(updatedAposta.getTimeCasa());
+                    aposta.setTimeFora(updatedAposta.getTimeFora());
                     aposta.setDataHorario(updatedAposta.getDataHorario());
                     aposta.setLiga(updatedAposta.getLiga());
                     aposta.setValor(updatedAposta.getValor());

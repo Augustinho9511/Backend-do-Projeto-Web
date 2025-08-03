@@ -1,6 +1,7 @@
 package MestredasApostas.controller;
 
-import MestredasApostas.model.Aposta;
+import MestredasApostas.model.dto.ApostaDTO;
+import MestredasApostas.model.entity.Aposta;
 import MestredasApostas.service.ApostaService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -34,9 +35,9 @@ public class ApostaController {
 
 
     @PostMapping
-    public ResponseEntity<Aposta> createAposta(@RequestBody Aposta aposta) {
+    public ResponseEntity<ApostaDTO> createAposta(@RequestBody ApostaDTO apostaDTO) {
         try {
-            Aposta novaAposta = apostaService.criarAposta(aposta);
+            ApostaDTO novaAposta = apostaService.criarAposta(apostaDTO);
             return ResponseEntity.ok(novaAposta);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().build();
