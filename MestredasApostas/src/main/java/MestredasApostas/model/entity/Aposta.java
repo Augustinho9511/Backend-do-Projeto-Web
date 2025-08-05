@@ -14,7 +14,7 @@ public class Aposta {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long apostaId;
+    private Long id;
 
     @ManyToOne
     @JoinColumn(name = "jogo_id")
@@ -51,7 +51,7 @@ public class Aposta {
     public String toString() {
 
         return "Aposta{" +
-                "apostaId=" + apostaId +
+                "id=" + id +
                 ", jogoId=" + (jogo != null ? jogo.getJogoId() : null) +
                 ", palpite='" + palpite + '\'' +
                 ", valorAposta=" + valor +

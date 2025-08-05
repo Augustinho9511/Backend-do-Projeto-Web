@@ -27,13 +27,12 @@ public class ApostaService {
 
     @Transactional
     public ApostaDTO criarAposta(ApostaDTO apostaDTO) {
-
         Aposta newAposta = new Aposta();
         newAposta.setOdd(apostaDTO.getOdd());
         newAposta.setLiga(apostaDTO.getLiga());
         newAposta.setTimeCasa(apostaDTO.getTimeCasa());
         newAposta.setTimeFora(apostaDTO.getTimeFora());
-        newAposta.setDataHorario(apostaDTO.getData());
+        newAposta.setDataHorario(apostaDTO.getDataHorario());
         newAposta.setPalpite(apostaDTO.getPalpite());
         newAposta.setValor(apostaDTO.getValor());
         newAposta.setValorCashOutRecebido(apostaDTO.getValorCashOutRecebido());
