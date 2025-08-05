@@ -1,68 +1,76 @@
 package MestredasApostas.service;
 
-import MestredasApostas.model.dto.ApostaDTO;
 import MestredasApostas.model.entity.Aposta;
+import MestredasApostas.model.dto.ApostaDTO;
+import MestredasApostas.model.enums.ApostaStatusEnum;
 import MestredasApostas.repository.ApostaRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
 
-
 @Service
 public class ApostaService {
 
-    private final ApostaRepository apostaRepository;
-    private final JogoService jogoService;
+    @Autowired
+    private ApostaRepository apostaRepository;
 
-    public ApostaService(ApostaRepository apostaRepository, JogoService jogoService) {
-        this.apostaRepository = apostaRepository;
-        this.jogoService = jogoService;
+    public List<Aposta> getAllApostas() {
+        return apostaRepository.findAll();
     }
 
-    public Optional<Aposta> findApostaById(Long id) {
+    public Optional<Aposta> getApostaById(Long id) {
         return apostaRepository.findById(id);
     }
 
-    @Transactional
-    public ApostaDTO criarAposta(ApostaDTO apostaDTO) {
+    public Aposta createAposta(ApostaDTO apostaDTO) {
         Aposta newAposta = new Aposta();
-        newAposta.setOdd(apostaDTO.getOdd());
-        newAposta.setLiga(apostaDTO.getLiga());
+        newAposta.setJogoApiId(apostaDTO.getJogoApiId());
         newAposta.setTimeCasa(apostaDTO.getTimeCasa());
         newAposta.setTimeFora(apostaDTO.getTimeFora());
+        newAposta.setLiga(apostaDTO.getLiga());
         newAposta.setDataHorario(apostaDTO.getDataHorario());
         newAposta.setPalpite(apostaDTO.getPalpite());
         newAposta.setValor(apostaDTO.getValor());
+        newAposta.setOdd(apostaDTO.getOdd());
+
+        if (apostaDTO.getStatus() != null) {
+            newAposta.setStatus(apostaDTO.getStatus());
+        } else {
+            newAposta.setStatus(ApostaStatusEnum.PENDENTE);
+        }
+
         newAposta.setValorCashOutRecebido(apostaDTO.getValorCashOutRecebido());
-        newAposta.setStatus(apostaDTO.getStatus());
-        apostaRepository.save(newAposta);
-        return apostaDTO;
+
+        return apostaRepository.save(newAposta);
     }
 
-    @Transactional
-    public Aposta updateAposta(Long id, Aposta updatedAposta) {
+    public Aposta updateAposta(Long id, ApostaDTO apostaDTO) {
         return apostaRepository.findById(id)
                 .map(aposta -> {
-                    aposta.setTimeCasa(updatedAposta.getTimeCasa());
-                    aposta.setTimeFora(updatedAposta.getTimeFora());
-                    aposta.setDataHorario(updatedAposta.getDataHorario());
-                    aposta.setLiga(updatedAposta.getLiga());
-                    aposta.setValor(updatedAposta.getValor());
-                    aposta.setPalpite(updatedAposta.getPalpite());
-                    aposta.setStatus(updatedAposta.getStatus()); // Adicionado
-                    aposta.setOdd(updatedAposta.getOdd()); // Adicionado
+                    aposta.setJogoApiId(apostaDTO.getJogoApiId());
+                    aposta.setTimeCasa(apostaDTO.getTimeCasa());
+                    aposta.setTimeFora(apostaDTO.getTimeFora());
+                    aposta.setLiga(apostaDTO.getLiga());
+                    aposta.setDataHorario(apostaDTO.getDataHorario());
+                    aposta.setPalpite(apostaDTO.getPalpite());
+                    aposta.setValor(apostaDTO.getValor());
+                    aposta.setOdd(apostaDTO.getOdd());
+
+                    if (apostaDTO.getStatus() != null) {
+                        aposta.setStatus(apostaDTO.getStatus());
+                    } else {
+                        aposta.setStatus(ApostaStatusEnum.PENDENTE);
+                    }
+
+                    aposta.setValorCashOutRecebido(apostaDTO.getValorCashOutRecebido());
                     return apostaRepository.save(aposta);
                 })
-                .orElseThrow(() -> new RuntimeException("Aposta com ID " + id + " não encontrada para atualização."));
+                .orElseThrow(() -> new RuntimeException("Aposta não encontrada com ID " + id));
     }
 
     public void deleteAposta(Long id) {
         apostaRepository.deleteById(id);
-    }
-
-    public List<Aposta> getApostas() {
-        return apostaRepository.findAll();
     }
 }
