@@ -1,344 +1,307 @@
 package MestredasApostas.controller;
 
-import MestredasApostas.model.dto.PalpiteDTO;
-import MestredasApostas.model.api.Jogo;
-import MestredasApostas.service.PalpiteService;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus; // Importe HttpStatus
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.Flux; // Importe Flux se usar para listas
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonProperty;
-
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/ia")
 public class PalpiteController {
-
-    @Autowired
-    private PalpiteService palpiteService;
 
     private final WebClient webClient;
 
-    private final String API_KEY = "b48e7494fa5f4be7620502cc770ac999"; // SUBSTITUA PELA SUA CHAVE REAL DA API-SPORTS
-    private final String API_URL = "https://v3.football.api-sports.io";
-    private final String API_HOST = "v3.football.api-sports.io";
-
-    public PalpiteController() {
-        this.webClient = WebClient.builder()
-                .baseUrl(API_URL)
-                .defaultHeader("x-rapidapi-key", API_KEY)
-                .defaultHeader("x-rapidapi-host", API_HOST)
-                .build();
+    @Autowired
+    public PalpiteController(WebClient webClient) {
+        this.webClient = webClient;
     }
 
-    /**
-     * Endpoint para listar todos os jogos de uma data específica para a funcionalidade de IA.
-     * Não gera palpites, apenas retorna os dados brutos dos jogos.
-     */
-    @GetMapping("/ia/jogos") // NOVO CAMINHO: Alterado de "/jogos" para "/ia/jogos" para evitar conflito
-    public ResponseEntity<List<Jogo>> getJogosPorData(
-            @RequestParam(required = false) String date
-    ) {
-        String finalDate = date;
-        if (finalDate == null || finalDate.isEmpty()) {
-            finalDate = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
-        }
+    // Endpoint para buscar países
+    @GetMapping("/countries")
+    public List<String> getCountries() {
+        // ✅ SOLUÇÃO TEMPORÁRIA: Retornando uma lista de países predefinida.
+        // Isso contorna o problema de dados incompletos da API-Sports para este endpoint.
+        System.out.println("DEBUG: getCountries - Retornando lista de países predefinida.");
+        return Arrays.asList(
+                "Brazil", "England", "Spain", "Italy", "Germany", "France", "Portugal",
+                "Argentina", "Mexico", "USA", "Netherlands", "Belgium", "Turkey"
+        );
 
+        /* // CÓDIGO ANTERIOR (comentado) - Mantenha-o para referência, mas não será executado
+        Mono<ApiSportsLeagueResponse> responseMono = webClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/leagues")
+                        .build())
+                .retrieve()
+                .onStatus(status -> status.isError(), clientResponse ->
+                    clientResponse.bodyToMono(String.class).map(body -> {
+                        System.err.println("ERRO API-Sports (Países) - Status: " + clientResponse.statusCode() + ", Body: " + body);
+                        return new RuntimeException("Erro da API-Sports ao buscar países: " + body);
+                    }))
+                .bodyToMono(ApiSportsLeagueResponse.class);
+
+        ApiSportsLeagueResponse apiResponse = null;
         try {
-            String finalDate1 = finalDate;
-            Mono<ApiSportsFixtureResponse> responseMono = webClient.get()
-                    .uri(uriBuilder -> uriBuilder
-                            .path("/fixtures")
-                            .queryParam("date", finalDate1)
-                            .build())
-                    .retrieve()
-                    .bodyToMono(ApiSportsFixtureResponse.class);
-
-            ApiSportsFixtureResponse apiResponse = responseMono.block();
-
-            if (apiResponse != null && apiResponse.getResponse() != null) {
-                // LOG: Tamanho da resposta bruta da API
-                System.out.println("LOG: API-Sports raw response size for /fixtures on " + finalDate + ": " + apiResponse.getResponse().size());
-
-                List<Jogo> jogosDaApiExterna = apiResponse.getResponse().stream()
-                        .map(fixtureData -> {
-                            // LOG: Detalhes básicos de cada fixture antes do mapeamento
-                            // System.out.println("LOG: Processing fixture ID: " + fixtureData.getFixture().getId() +
-                            //                    ", Home: " + fixtureData.getTeams().getHome().getName() +
-                            //                    ", Away: " + fixtureData.getTeams().getAway().getName() +
-                            //                    ", Status: " + (fixtureData.getFixture().getStatus() != null ? fixtureData.getFixture().getStatus().getShortStatus() : "N/A"));
-
-                            Long fixtureApiId = fixtureData.getFixture().getId();
-                            String homeTeamName = fixtureData.getTeams().getHome().getName();
-                            String awayTeamName = fixtureData.getTeams().getAway().getName();
-                            String leagueName = fixtureData.getLeague().getName();
-                            String fixtureDateString = fixtureData.getFixture().getDate();
-
-                            String statusShort = fixtureData.getFixture().getStatus() != null ? fixtureData.getFixture().getStatus().getShortStatus() : null;
-                            String statusLong = fixtureData.getFixture().getStatus() != null ? fixtureData.getFixture().getStatus().getLongStatus() : null;
-                            Integer homeGoals = fixtureData.getGoals() != null ? fixtureData.getGoals().getHome() : null;
-                            Integer awayGoals = fixtureData.getGoals() != null ? fixtureData.getGoals().getAway() : null;
-                            String venueName = fixtureData.getVenue() != null ? fixtureData.getVenue().getName() : null;
-                            String venueCity = fixtureData.getVenue() != null ? fixtureData.getVenue().getCity() : null;
-
-                            return new Jogo(
-                                    fixtureApiId,
-                                    homeTeamName,
-                                    awayTeamName,
-                                    leagueName,
-                                    fixtureDateString,
-                                    fixtureApiId,
-                                    statusShort,
-                                    statusLong,
-                                    homeGoals,
-                                    awayGoals,
-                                    venueName,
-                                    venueCity
-                            );
-                        })
-                        .collect(Collectors.toList());
-
-                // LOG: Número de objetos Jogo retornados ao frontend
-                System.out.println("LOG: Number of Jogo objects returned to frontend for /ia/jogos: " + jogosDaApiExterna.size());
-                return new ResponseEntity<>(jogosDaApiExterna, HttpStatus.OK);
-            } else {
-                System.out.println("LOG: API-Sports response for /fixtures was null or empty for " + finalDate + ".");
-                return new ResponseEntity<>(Collections.emptyList(), HttpStatus.OK);
-            }
-
+            apiResponse = responseMono.block();
         } catch (Exception e) {
-            System.err.println("Erro ao buscar jogos da API externa: " + e.getMessage());
+            System.err.println("ERRO: Falha ao receber resposta da API-Sports para países: " + e.getMessage());
             e.printStackTrace();
-            return new ResponseEntity<>(Collections.emptyList(), HttpStatus.INTERNAL_SERVER_ERROR);
+            return Collections.emptyList();
         }
+
+        if (apiResponse == null || apiResponse.getResponse() == null) {
+            System.out.println("DEBUG: getCountries - Resposta da API-Sports para países foi nula ou vazia.");
+            return Collections.emptyList();
+        }
+        System.out.println("DEBUG: getCountries - " + apiResponse.getResponse().size() + " ligas recebidas para extrair países.");
+
+        return apiResponse.getResponse().stream()
+                .filter(leagueData -> {
+                    boolean isValid = leagueData != null
+                                   && leagueData.getLeague() != null
+                                   && leagueData.getLeague().getCountry() != null
+                                   && leagueData.getLeague().getCountry().getName() != null;
+                    if (!isValid) {
+                        System.out.println("DEBUG: getCountries - Item de liga com dados de país nulos ou incompletos: " + leagueData);
+                    }
+                    return isValid;
+                })
+                .map(leagueData -> leagueData.getLeague().getCountry().getName())
+                .distinct()
+                .sorted()
+                .collect(Collectors.toList());
+        */
     }
 
-    /**
-     * Endpoint para gerar palpites para um jogo específico.
-     * Requer o ID do jogo.
-     */
-    @GetMapping("/palpitesIA")
-    public ResponseEntity<List<PalpiteDTO>> getPalpitesIA(
-            @RequestParam(required = false) String date,
-            @RequestParam Long gameId
-    ) {
-        String finalDate = date;
-        if (finalDate == null || finalDate.isEmpty()) {
-            finalDate = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
-        }
+    // Este método busca ligas
+    @GetMapping("/leagues")
+    public List<String> getLeagues(@RequestParam String country) {
+        Mono<ApiSportsLeagueResponse> responseMono = webClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/leagues")
+                        .queryParam("country", country)
+                        .build())
+                .retrieve()
+                .onStatus(status -> status.isError(), clientResponse ->
+                        clientResponse.bodyToMono(String.class).map(body -> {
+                            System.err.println("ERRO API-Sports (Ligas) - Status: " + clientResponse.statusCode() + ", Body: " + body);
+                            return new RuntimeException("Erro da API-Sports ao buscar ligas: " + body);
+                        }))
+                .bodyToMono(ApiSportsLeagueResponse.class);
 
-        List<Jogo> jogosParaPalpite = new ArrayList<>();
-
+        ApiSportsLeagueResponse apiResponse = null;
         try {
-            System.out.println("LOG: Request to /palpitesIA for gameId: " + gameId + " on date: " + finalDate);
-
-            // NOVO: Busca o jogo específico DIRETAMENTE pela API usando o ID
-            Mono<ApiSportsFixtureResponse> specificFixtureResponseMono = webClient.get()
-                    .uri(uriBuilder -> uriBuilder
-                            .path("/fixtures")
-                            .queryParam("id", gameId) // Busca diretamente pelo ID do jogo
-                            .build())
-                    .retrieve()
-                    .bodyToMono(ApiSportsFixtureResponse.class);
-
-            ApiSportsFixtureResponse specificFixtureApiResponse = specificFixtureResponseMono.block();
-
-            if (specificFixtureApiResponse != null && specificFixtureApiResponse.getResponse() != null && !specificFixtureApiResponse.getResponse().isEmpty()) {
-                // Deve haver apenas um fixture se encontrado por ID
-                FixtureData fixtureData = specificFixtureApiResponse.getResponse().get(0);
-                System.out.println("LOG: API-Sports raw response size for specific fixture (id " + gameId + "): " + specificFixtureApiResponse.getResponse().size());
-                System.out.println("LOG: Processing specific fixture ID: " + fixtureData.getFixture().getId() +
-                        ", Home: " + fixtureData.getTeams().getHome().getName() +
-                        ", Away: " + fixtureData.getTeams().getAway().getName() +
-                        ", Status: " + (fixtureData.getFixture().getStatus() != null ? fixtureData.getFixture().getStatus().getShortStatus() : "N/A"));
-
-                Long fixtureApiId = fixtureData.getFixture().getId();
-                String homeTeamName = fixtureData.getTeams().getHome().getName();
-                String awayTeamName = fixtureData.getTeams().getAway().getName();
-                String leagueName = fixtureData.getLeague().getName();
-                String fixtureDateString = fixtureData.getFixture().getDate();
-
-                String statusShort = fixtureData.getFixture().getStatus() != null ? fixtureData.getFixture().getStatus().getShortStatus() : null;
-                String statusLong = fixtureData.getFixture().getStatus() != null ? fixtureData.getFixture().getStatus().getLongStatus() : null;
-                Integer homeGoals = fixtureData.getGoals() != null ? fixtureData.getGoals().getHome() : null;
-                Integer awayGoals = fixtureData.getGoals() != null ? fixtureData.getGoals().getAway() : null;
-                String venueName = fixtureData.getVenue() != null ? fixtureData.getVenue().getName() : null;
-                String venueCity = fixtureData.getVenue() != null ? fixtureData.getVenue().getCity() : null;
-
-                jogosParaPalpite.add(new Jogo(
-                        fixtureApiId,
-                        homeTeamName,
-                        awayTeamName,
-                        leagueName,
-                        fixtureDateString,
-                        fixtureApiId,
-                        statusShort,
-                        statusLong,
-                        homeGoals,
-                        awayGoals,
-                        venueName,
-                        venueCity
-                ));
-            } else {
-                System.out.println("LOG: API-Sports response for specific fixture (id " + gameId + ") was null or empty.");
-            }
-
-            // Chama o serviço para gerar o palpite para o jogo específico
-            List<PalpiteDTO> palpites = palpiteService.generatePalpites(jogosParaPalpite);
-
-            System.out.println("LOG: Number of PalpiteDTOs generated for gameId " + gameId + ": " + palpites.size());
-            if (!palpites.isEmpty()) {
-                System.out.println("LOG: Generated Palpite: " + palpites.get(0).getPalpite() + ", Odd: " + palpites.get(0).getOdd());
-            }
-
-            return new ResponseEntity<>(palpites, HttpStatus.OK);
-
+            apiResponse = responseMono.block();
         } catch (Exception e) {
-            System.err.println("Erro ao buscar jogo da API externa ou gerar palpite: " + e.getMessage());
+            System.err.println("ERRO: Falha ao receber resposta da API-Sports para ligas: " + e.getMessage());
             e.printStackTrace();
-            return new ResponseEntity<>(Collections.emptyList(), HttpStatus.INTERNAL_SERVER_ERROR);
+            return Collections.emptyList();
         }
+
+        if (apiResponse == null || apiResponse.getResponse() == null) {
+            System.out.println("DEBUG: getLeagues - Resposta da API-Sports para ligas foi nula ou vazia para país: " + country);
+            return Collections.emptyList();
+        }
+        System.out.println("DEBUG: getLeagues - " + apiResponse.getResponse().size() + " ligas recebidas da API-Sports para país: " + country);
+
+        return apiResponse.getResponse().stream()
+                .filter(leagueData -> leagueData != null && leagueData.getLeague() != null && leagueData.getLeague().getName() != null)
+                .map(leagueData -> leagueData.getLeague().getName())
+                .distinct()
+                .sorted()
+                .collect(Collectors.toList());
     }
 
-    // --- CLASSES AUXILIARES PARA MAPEAR A RESPOSTA JSON DA API-SPORTS ---
+    @GetMapping("/jogos")
+    public List<JogoResponse> getJogos(
+            @RequestParam String date,
+            @RequestParam(required = false) String country,
+            @RequestParam(required = false) String league) {
+
+        if (country == null || country.isEmpty() || league == null || league.isEmpty()) {
+            System.out.println("DEBUG: getJogos - País ou Liga não fornecidos, retornando lista vazia.");
+            return Collections.emptyList();
+        }
+
+        String leagueId = getLeagueId(country, league);
+        if (leagueId == null) {
+            System.out.println("DEBUG: getJogos - ID da Liga não encontrado para País: " + country + ", Liga: " + league);
+            return Collections.emptyList();
+        }
+
+        Mono<ApiSportsFixtureResponse> responseMono = webClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/fixtures")
+                        .queryParam("date", date)
+                        .queryParam("league", leagueId)
+                        .queryParam("season", "2024") // ATENÇÃO: Verifique esta temporada na API-Sports! Pode ser "2023" ou "2022"
+                        .build())
+                .retrieve()
+                .onStatus(status -> status.isError(), clientResponse ->
+                        clientResponse.bodyToMono(String.class).map(body -> {
+                            System.err.println("ERRO API-Sports (Jogos) - Status: " + clientResponse.statusCode() + ", Body: " + body);
+                            return new RuntimeException("Erro da API-Sports ao buscar jogos: " + body);
+                        }))
+                .bodyToMono(ApiSportsFixtureResponse.class);
+
+        ApiSportsFixtureResponse apiResponse = null;
+        try {
+            apiResponse = responseMono.block();
+        } catch (Exception e) {
+            System.err.println("ERRO: Falha ao receber resposta da API-Sports para jogos: " + e.getMessage());
+            e.printStackTrace();
+            return Collections.emptyList();
+        }
+
+        if (apiResponse == null || apiResponse.getResponse() == null) {
+            System.out.println("DEBUG: getJogos - Resposta da API-Sports para jogos foi nula ou vazia.");
+            return Collections.emptyList();
+        }
+        System.out.println("DEBUG: getJogos - " + apiResponse.getResponse().size() + " jogos recebidos da API-Sports.");
+
+        return apiResponse.getResponse().stream()
+                .map(this::mapToJogoResponse)
+                .collect(Collectors.toList());
+    }
+
+    private String getLeagueId(String country, String league) {
+        Mono<ApiSportsLeagueResponse> responseMono = webClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/leagues")
+                        .queryParam("country", country)
+                        .build())
+                .retrieve()
+                .onStatus(status -> status.isError(), clientResponse ->
+                        clientResponse.bodyToMono(String.class).map(body -> {
+                            System.err.println("ERRO API-Sports (ID Liga) - Status: " + clientResponse.statusCode() + ", Body: " + body);
+                            return new RuntimeException("Erro da API-Sports ao buscar ID da liga: " + body);
+                        }))
+                .bodyToMono(ApiSportsLeagueResponse.class);
+
+        ApiSportsLeagueResponse apiResponse = null;
+        try {
+            apiResponse = responseMono.block();
+        } catch (Exception e) {
+            System.err.println("ERRO: Falha ao receber resposta da API-Sports para ID da Liga: " + e.getMessage());
+            e.printStackTrace();
+            return null;
+        }
+
+        if (apiResponse == null || apiResponse.getResponse() == null) {
+            System.out.println("DEBUG: getLeagueId - Resposta da API-Sports para ligas foi nula ou vazia para país: " + country);
+            return null;
+        }
+
+        return apiResponse.getResponse().stream()
+                .filter(leagueData -> leagueData != null && leagueData.getLeague() != null && leagueData.getLeague().getName() != null && leagueData.getLeague().getName().equals(league))
+                .findFirst()
+                .map(leagueData -> String.valueOf(leagueData.getLeague().getId()))
+                .orElse(null);
+    }
+
+    // CORREÇÃO AQUI: Adicionadas verificações de nulo para as propriedades aninhadas
+    private JogoResponse mapToJogoResponse(FixtureData fixtureData) {
+        JogoResponse jogoResponse = new JogoResponse();
+
+        jogoResponse.setJogoId(fixtureData.getFixture() != null ? fixtureData.getFixture().getId() : null);
+
+        // Verificações de nulo para evitar NullPointerException e garantir que o frontend receba strings
+        jogoResponse.setHomeTeam(fixtureData.getTeams() != null && fixtureData.getTeams().getHome() != null ? fixtureData.getTeams().getHome().getName() : "N/A");
+        jogoResponse.setAwayTeam(fixtureData.getTeams() != null && fixtureData.getTeams().getAway() != null ? fixtureData.getTeams().getAway().getName() : "N/A");
+
+        jogoResponse.setLeagueName(fixtureData.getLeague() != null ? fixtureData.getLeague().getName() : "N/A");
+        jogoResponse.setCountryName(fixtureData.getLeague() != null && fixtureData.getLeague().getCountry() != null ? fixtureData.getLeague().getCountry().getName() : "N/A");
+
+        return jogoResponse;
+    }
+
+    // Classes DTOs aninhadas para mapear a resposta da API-Sports
+    @Getter @Setter @NoArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class JogoResponse {
+        private Long jogoId;
+        private String homeTeam;
+        private String awayTeam;
+        private String leagueName;
+        private String countryName;
+    }
+
+    @Getter @Setter @NoArgsConstructor
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class ApiSportsFixtureResponse {
         @JsonProperty("response")
         private List<FixtureData> response;
-
-        public List<FixtureData> getResponse() { return response; }
-        public void setResponse(List<FixtureData> response) { this.response = response; }
     }
 
+    @Getter @Setter @NoArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class ApiSportsLeagueResponse {
+        @JsonProperty("response")
+        private List<LeagueData> response;
+    }
+
+    @Getter @Setter @NoArgsConstructor
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class FixtureData {
         private FixtureDetails fixture;
         private LeagueDetails league;
         private TeamsDetails teams;
-        private GoalsDetails goals;
-        private ScoreDetails score;
-        private VenueDetails venue;
-
-        public FixtureDetails getFixture() { return fixture; }
-        public void setFixture(FixtureDetails fixture) { this.fixture = fixture; }
-        public LeagueDetails getLeague() { return league; }
-        public void setLeague(LeagueDetails league) { this.league = league; }
-        public TeamsDetails getTeams() { return teams; }
-        public void setTeams(TeamsDetails teams) { this.teams = teams; }
-        public GoalsDetails getGoals() { return goals; }
-        public void setGoals(GoalsDetails goals) { this.goals = goals; }
-        public ScoreDetails getScore() { return score; }
-        public void setScore(ScoreDetails score) { this.score = score; }
-        public VenueDetails getVenue() { return venue; }
-        public void setVenue(VenueDetails venue) { this.venue = venue; }
     }
 
+    @Getter @Setter @NoArgsConstructor
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class FixtureDetails {
         private Long id;
         private String date;
-        private StatusDetails status;
-
-        public Long getId() { return id; }
-        public void setId(Long id) { this.id = id; }
-        public String getDate() { return date; }
-        public void setDate(String date) { this.date = date; }
-        public StatusDetails getStatus() { return status; }
-        public void setStatus(StatusDetails status) { this.status = status; }
     }
 
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    public static class StatusDetails {
-        @JsonProperty("long")
-        private String longStatus;
-        @JsonProperty("short")
-        private String shortStatus;
-        private Integer elapsed;
-
-        public String getLongStatus() { return longStatus; }
-        public void setLongStatus(String longStatus) { this.longStatus = longStatus; }
-        public String getShortStatus() { return shortStatus; }
-        public void setShortStatus(String shortStatus) { this.shortStatus = shortStatus; }
-        public Integer getElapsed() { return elapsed; }
-        public void setElapsed(Integer elapsed) { this.elapsed = elapsed; }
-    }
-
+    // A classe LeagueDetails foi corrigida para incluir o objeto CountryDetails
+    @Getter @Setter @NoArgsConstructor
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class LeagueDetails {
+        private Long id;
         private String name;
-
-        public String getName() { return name; }
-        public void setName(String name) { this.name = name; }
+        private CountryDetails country;
     }
 
+    // A classe CountryDetails foi adicionada
+    @Getter @Setter @NoArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class CountryDetails {
+        private String name;
+    }
+
+    @Getter @Setter @NoArgsConstructor
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class TeamsDetails {
         private TeamDetails home;
         private TeamDetails away;
-
-        public TeamDetails getHome() { return home; }
-        public void setHome(TeamDetails home) { this.home = home; }
-        public TeamDetails getAway() { return away; }
-        public void setAway(TeamDetails away) { this.away = away; }
     }
 
+    @Getter @Setter @NoArgsConstructor
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class TeamDetails {
         private String name;
-
-        public String getName() { return name; }
-        public void setName(String name) { this.name = name; }
     }
 
+    @Getter @Setter @NoArgsConstructor
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public static class GoalsDetails {
-        private Integer home;
-        private Integer away;
-
-        public Integer getHome() { return home; }
-        public void setHome(Integer home) { this.home = home; }
-        public Integer getAway() { return away; }
-        public void setAway(Integer away) { this.away = away; }
-    }
-
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    public static class ScoreDetails {
-        private GoalsDetails halftime;
-        private GoalsDetails fulltime;
-        private GoalsDetails extratime;
-        private GoalsDetails penalty;
-
-        public GoalsDetails getHalftime() { return halftime; }
-        public void setHalftime(GoalsDetails halftime) { this.halftime = halftime; }
-        public GoalsDetails getFulltime() { return fulltime; }
-        public void setFulltime(GoalsDetails fulltime) { this.fulltime = fulltime; }
-        public GoalsDetails getExtratime() { return extratime; }
-        public void setExtratime(GoalsDetails extratime) { this.extratime = extratime; }
-        public GoalsDetails getPenalty() { return penalty; }
-        public void setPenalty(GoalsDetails penalty) { this.penalty = penalty; }
-    }
-
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    public static class VenueDetails {
-        private String name;
-        private String city;
-
-        public String getName() { return name; }
-        public void setName(String name) { this.name = name; }
-        public String getCity() { return city; }
-        public void setCity(String city) { this.city = city; }
+    public static class LeagueData {
+        private LeagueDetails league;
     }
 }

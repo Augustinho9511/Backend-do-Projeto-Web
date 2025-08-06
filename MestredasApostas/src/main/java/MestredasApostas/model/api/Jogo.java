@@ -10,9 +10,6 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 
-// Entidade Jogo para mapear os dados de uma partida de futebol da API-Sports
-// @JsonIgnoreProperties(ignoreUnknown = true) é usado para ignorar quaisquer campos no JSON
-// que não estejam definidos nesta classe, evitando erros de desserialização.
 @Setter
 @Getter
 public class Jogo {

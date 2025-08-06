@@ -1,6 +1,6 @@
 package MestredasApostas.model.dto;
 
-import java.math.BigDecimal; // Importar BigDecimal
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public class PalpiteDTO {
@@ -16,7 +16,7 @@ public class PalpiteDTO {
     public PalpiteDTO() {
     }
 
-    // Construtor atualizado, sem campos de aposta
+    // Construtor atualizado
     public PalpiteDTO(Long jogoId, String timeCasa, String timeFora, String liga, LocalDateTime dataHorario, String palpite, BigDecimal odd, String analiseGols) {
         this.jogoId = jogoId;
         this.timeCasa = timeCasa;
@@ -25,7 +25,7 @@ public class PalpiteDTO {
         this.dataHorario = dataHorario;
         this.palpite = palpite;
         this.odd = odd;
-        this.analiseGols = analiseGols; // Inicializa o novo campo
+        this.analiseGols = analiseGols;
     }
 
     // Getters e Setters
@@ -103,6 +103,7 @@ public class PalpiteDTO {
                 ", dataHorario=" + dataHorario +
                 ", palpite='" + palpite + '\'' +
                 ", odd=" + odd +
+                ", analiseGols='" + analiseGols + '\'' + // Inclui analiseGols no toString
                 '}';
     }
 }
