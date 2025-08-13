@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.ToString;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -15,9 +16,9 @@ import reactor.core.publisher.Mono;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.HashMap;
 
 @RestController
 @RequestMapping("/api/ia")
@@ -29,11 +30,6 @@ public class PalpiteController {
         this.apiSportsWebClient = apiSportsWebClient;
     }
 
-    /**
-     * Endpoint para buscar países e a contagem de jogos para a data especificada.
-     * @param date A data para filtrar os jogos (formato yyyy-MM-dd).
-     * @return Uma lista de objetos contendo o nome do país e a contagem de jogos.
-     */
     @GetMapping("/countries")
     public List<CountryGamesCount> getCountries(@RequestParam String date) {
         System.out.println("DEBUG: getCountries - Buscando países com contagem de jogos para a data: " + date);
@@ -81,12 +77,6 @@ public class PalpiteController {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Endpoint para buscar ligas e a contagem de jogos para o país e data especificados.
-     * @param country O nome do país para filtrar.
-     * @param date A data para filtrar os jogos (formato yyyy-MM-dd).
-     * @return Uma lista de objetos contendo o nome da liga e a contagem de jogos.
-     */
     @GetMapping("/leagues")
     public List<LeagueGamesCount> getLeagues(@RequestParam String country, @RequestParam String date) {
         System.out.println("DEBUG: getLeagues - Buscando ligas com contagem de jogos para país: " + country + " e data: " + date);
@@ -138,13 +128,6 @@ public class PalpiteController {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Endpoint para buscar jogos para a data, país e liga especificados.
-     * @param date A data para filtrar os jogos (formato yyyy-MM-dd).
-     * @param country O nome do país.
-     * @param league O nome da liga.
-     * @return Uma lista de objetos de jogos.
-     */
     @GetMapping("/jogos")
     public List<JogoResponse> getJogos(
             @RequestParam String date,
@@ -194,112 +177,120 @@ public class PalpiteController {
         return jogosFiltrados;
     }
 
-    /**
-     * Endpoint para gerar palpites de gols, escanteios e resultado para um jogo usando a API-Sports.
-     * @param jogoId O ID do jogo para o qual gerar os palpites.
-     * @return Um objeto de resposta com os palpites estruturados.
-     */
-    @GetMapping("/palpites")
-    public Mono<PredictionDTO> getPalpites(@RequestParam Long jogoId) {
-        System.out.println("DEBUG: getPalpites - Buscando palpites reais para o ID do jogo: " + jogoId);
+    @GetMapping("/analise-completa")
+    public Mono<AnaliseCompletaDTO> getAnaliseCompleta(@RequestParam Long jogoId) {
+        System.out.println("DEBUG: getAnaliseCompleta - Buscando análise completa para o ID do jogo: " + jogoId);
 
-        return apiSportsWebClient.get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/predictions")
-                        .queryParam("fixture", jogoId)
-                        .build())
+        // 1. Chama o endpoint de palpites
+        Mono<ApiSportsPredictionResponse> predictionsMono = apiSportsWebClient.get()
+                .uri(uriBuilder -> uriBuilder.path("/predictions").queryParam("fixture", jogoId).build())
                 .retrieve()
-                .onStatus(status -> status.isError(), clientResponse ->
-                        clientResponse.bodyToMono(String.class).map(body -> {
-                            System.err.println("ERRO API-Sports (Palpites) - Status: " + clientResponse.statusCode() + ", Body: " + body);
-                            return new RuntimeException("Erro da API-Sports ao buscar palpites: " + body);
-                        }))
                 .bodyToMono(ApiSportsPredictionResponse.class)
-                .map(apiResponse -> {
-                    if (apiResponse == null || apiResponse.getResponse() == null || apiResponse.getResponse().isEmpty()) {
-                        System.err.println("ERRO: Nenhum palpite encontrado para o ID do jogo: " + jogoId);
-                        return new PredictionDTO("N/A", "N/A", "Não foi possível encontrar o palpite.");
-                    }
-
-                    System.out.println("DEBUG: getPalpites - Resposta completa da API-Sports: " + apiResponse.getResponse().get(0));
-
-                    Optional<PredictionData> predictionDataOpt = Optional.ofNullable(apiResponse.getResponse().get(0));
-                    PredictionDetails predictionDetails = predictionDataOpt.map(PredictionData::getPredictions).orElse(null);
-
-                    String gols = getPredictionSafely(predictionDetails != null ? predictionDetails.getGoals() : null, "goals");
-                    String escanteios = getPredictionSafely(predictionDetails != null ? predictionDetails.getCorner_kicks() : null, "corner_kicks");
-                    String resultado = getPredictionSafely(predictionDetails != null ? predictionDetails.getWin_or_draw() : null, "win_or_draw");
-
-                    System.out.println("DEBUG: getPalpites - Palpites extraídos: Gols=" + gols + ", Escanteios=" + escanteios + ", Resultado=" + resultado);
-
-                    return new PredictionDTO(gols, escanteios, resultado);
-                })
                 .onErrorResume(e -> {
                     System.err.println("ERRO: Falha ao buscar palpites na API-Sports: " + e.getMessage());
-                    e.printStackTrace();
-                    return Mono.just(new PredictionDTO("Erro", "Erro", "Não foi possível buscar detalhes do palpite."));
+                    return Mono.empty();
+                });
+
+        // 2. Chama o endpoint de eventos (para cartões e escanteios)
+        Mono<ApiSportsEventsResponse> eventsMono = apiSportsWebClient.get()
+                .uri(uriBuilder -> uriBuilder.path("/fixtures/events").queryParam("fixture", jogoId).build())
+                .retrieve()
+                .bodyToMono(ApiSportsEventsResponse.class)
+                .onErrorResume(e -> {
+                    System.err.println("ERRO: Falha ao buscar eventos na API-Sports: " + e.getMessage());
+                    return Mono.empty();
+                });
+
+        // Combina os resultados das duas chamadas
+        return Mono.zip(predictionsMono, eventsMono)
+                .map(tuple -> {
+                    ApiSportsPredictionResponse predictionResponse = tuple.getT1();
+                    ApiSportsEventsResponse eventsResponse = tuple.getT2();
+
+                    // Processa a resposta de palpites
+                    String resultado = "Não disponível";
+                    String gols = "Não disponível";
+                    String btts = "Não disponível";
+                    if (predictionResponse != null && predictionResponse.getResponse() != null && !predictionResponse.getResponse().isEmpty()) {
+                        PredictionData predictionData = predictionResponse.getResponse().get(0);
+                        PredictionDetails predictionDetails = Optional.ofNullable(predictionData.getPredictions()).orElse(null);
+                        if (predictionDetails != null) {
+                            String advice = Optional.ofNullable(predictionDetails.getAdvice()).orElse("Não disponível");
+                            Map<String, String> translatedData = splitAndTranslateAdvice(advice);
+                            resultado = translatedData.get("resultado");
+                            gols = translatedData.get("gols");
+                            btts = Optional.ofNullable(predictionDetails.isBtts()).map(bttsValue -> bttsValue ? "Sim" : "Não").orElse("Não disponível");
+                        }
+                    }
+
+                    // Processa a resposta de eventos (cartões e escanteios)
+                    long totalCards = 0;
+                    long totalCorners = 0;
+                    if (eventsResponse != null && eventsResponse.getResponse() != null) {
+                        totalCards = eventsResponse.getResponse().stream()
+                                .filter(event -> "Card".equalsIgnoreCase(event.getType()))
+                                .count();
+                        totalCorners = eventsResponse.getResponse().stream()
+                                .filter(event -> "Corner Kick".equalsIgnoreCase(event.getType()))
+                                .count();
+                    }
+
+                    return new AnaliseCompletaDTO(resultado, gols, btts, String.valueOf(totalCards), String.valueOf(totalCorners));
+                })
+                .onErrorResume(e -> {
+                    System.err.println("ERRO: Falha geral na análise completa: " + e.getMessage());
+                    return Mono.just(new AnaliseCompletaDTO("Erro", "Erro", "Erro", "Erro", "Erro"));
                 });
     }
 
-    /**
-     * Método auxiliar para extrair a string de previsão de um objeto que pode ser um Map, um Booleano, etc.
-     * Este método foi corrigido para lidar com valores nulos dentro de mapas, como nos campos de gols.
-     * @param predictionObject O objeto de previsão retornado pela API.
-     * @param fieldName O nome do campo para logs.
-     * @return A string de previsão ou "Não disponível" se a estrutura for inesperada.
-     */
-    private String getPredictionSafely(Object predictionObject, String fieldName) {
-        if (predictionObject == null) {
-            System.out.println("DEBUG: getPredictionSafely - Campo '" + fieldName + "' é nulo.");
-            return "Não disponível";
-        }
-        System.out.println("DEBUG: getPredictionSafely - Verificando o campo '" + fieldName + "'. Tipo: " + predictionObject.getClass().getName() + ", Valor: " + predictionObject);
+    private Map<String, String> splitAndTranslateAdvice(String advice) {
+        Map<String, String> translatedData = new HashMap<>();
+        String resultado = "Não disponível";
+        String gols = "Não disponível";
 
-        if (predictionObject instanceof Map) {
-            Map<String, Object> predictionMap = (Map<String, Object>) predictionObject;
-
-            // Se o mapa contiver a chave "prediction" (formato esperado)
-            if (predictionMap.containsKey("prediction")) {
-                return Optional.ofNullable(predictionMap.get("prediction"))
-                        .map(Object::toString)
-                        .orElse("Não disponível");
+        if (advice != null && !advice.isEmpty()) {
+            // Tenta encontrar a parte dos gols primeiro
+            String goalsPattern = "([-+]?\\d+\\.\\d+|[-+]?\\d+) goals";
+            java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(goalsPattern);
+            java.util.regex.Matcher matcher = pattern.matcher(advice);
+            if (matcher.find()) {
+                gols = matcher.group(0).replace("goals", "Gols");
+                // Remove a parte dos gols para isolar o resultado
+                advice = advice.replace(matcher.group(0), "").trim();
+                // Remove o "and" se ele estiver no final
+                if (advice.endsWith(" and")) {
+                    advice = advice.substring(0, advice.length() - 4).trim();
+                }
             }
-            // Se o mapa for para "goals" e tiver as chaves "home" e "away"
-            else if ("goals".equals(fieldName) && predictionMap.containsKey("home") && predictionMap.containsKey("away")) {
-                // CORREÇÃO: Usamos Objects.toString() para lidar com valores nulos
-                String homeGoals = Objects.toString(predictionMap.get("home"), "Não disponível");
-                String awayGoals = Objects.toString(predictionMap.get("away"), "Não disponível");
-                return "Casa: " + homeGoals + ", Fora: " + awayGoals;
+
+            // Tenta encontrar o resultado com o texto restante
+            if (!advice.isEmpty()) {
+                String tempResultado = advice;
+                if (tempResultado.contains("Combo Double chance")) {
+                    tempResultado = tempResultado.replace("Combo Double chance", "Combo Chance Dupla");
+                } else if (tempResultado.contains("Double chance")) {
+                    tempResultado = tempResultado.replace("Double chance", "Chance Dupla");
+                }
+                resultado = tempResultado.replace(" or draw", " ou empate").trim();
             }
         }
-        // Se o objeto for um booleano (como para "win_or_draw")
-        else if (predictionObject instanceof Boolean) {
-            return (Boolean) predictionObject ? "Vitória ou Empate" : "Não disponível";
-        }
 
-        // Se o objeto for do tipo String
-        else if (predictionObject instanceof String) {
-            return (String) predictionObject;
-        }
-
-        // Caso de fallback para qualquer outro tipo ou estrutura inesperada
-        System.out.println("DEBUG: getPredictionSafely - Tipo ou estrutura de dados não esperada para o campo '" + fieldName + "'. Tipo: " + predictionObject.getClass().getName() + ", Valor: " + predictionObject);
-        return "Não disponível";
+        translatedData.put("resultado", resultado);
+        translatedData.put("gols", gols);
+        return translatedData;
     }
+
 
     private JogoResponse mapToJogoResponse(FixtureData fixtureData) {
         JogoResponse jogoResponse = new JogoResponse();
-
         jogoResponse.setJogoId(fixtureData.getFixture() != null ? fixtureData.getFixture().getId() : null);
         jogoResponse.setHomeTeam(fixtureData.getTeams() != null && fixtureData.getTeams().getHome() != null ? fixtureData.getTeams().getHome().getName() : "N/A");
         jogoResponse.setAwayTeam(fixtureData.getTeams() != null && fixtureData.getTeams().getAway() != null ? fixtureData.getTeams().getAway().getName() : "N/A");
         jogoResponse.setLeagueName(fixtureData.getLeague() != null ? fixtureData.getLeague().getName() : "N/A");
         jogoResponse.setCountryName(fixtureData.getLeague() != null ? fixtureData.getLeague().getCountry() : "N/A");
-
         return jogoResponse;
     }
 
-    // DTOs para o frontend
     @Getter @Setter @NoArgsConstructor
     public static class CountryGamesCount {
         private String name;
@@ -324,20 +315,6 @@ public class PalpiteController {
 
     @Getter @Setter @NoArgsConstructor
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public static class PredictionDTO {
-        private String gols;
-        private String escanteios;
-        private String resultado;
-
-        public PredictionDTO(String gols, String escanteios, String resultado) {
-            this.gols = gols;
-            this.escanteios = escanteios;
-            this.resultado = resultado;
-        }
-    }
-
-    @Getter @Setter @NoArgsConstructor
-    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class JogoResponse {
         private Long jogoId;
         private String homeTeam;
@@ -355,39 +332,45 @@ public class PalpiteController {
 
     @Getter @Setter @NoArgsConstructor
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public static class ApiSportsLeagueResponse {
-        @JsonProperty("response")
-        private List<LeagueData> response;
-    }
-
-    // DTO para a resposta da API de Previsões
-    @Getter @Setter @NoArgsConstructor
-    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class ApiSportsPredictionResponse {
         @JsonProperty("response")
         private List<PredictionData> response;
     }
 
-    @Getter @Setter @NoArgsConstructor
+    @Getter @Setter @NoArgsConstructor @ToString
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class PredictionData {
         private PredictionDetails predictions;
     }
 
-    @Getter @Setter @NoArgsConstructor
+    @Getter @Setter @NoArgsConstructor @ToString
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class PredictionDetails {
-        private Object goals;
-        @JsonProperty("corner_kicks")
-        private Object corner_kicks;
+        private WinnerDetails winner;
         @JsonProperty("win_or_draw")
-        private Object win_or_draw;
+        private boolean winOrDraw;
+        @JsonProperty("under_over")
+        private Object underOver;
+        private GoalsDetails goals;
+        private String advice;
+        private Map<String, String> percent;
+        @JsonProperty("btts")
+        private boolean btts;
     }
 
     @Getter @Setter @NoArgsConstructor
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public static class Prediction {
-        private String prediction;
+    public static class WinnerDetails {
+        private Long id;
+        private String name;
+        private String comment;
+    }
+
+    @Getter @Setter @NoArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class GoalsDetails {
+        private String home;
+        private String away;
     }
 
     @Getter @Setter @NoArgsConstructor
@@ -415,12 +398,6 @@ public class PalpiteController {
 
     @Getter @Setter @NoArgsConstructor
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public static class LeagueData {
-        private LeagueDetails league;
-    }
-
-    @Getter @Setter @NoArgsConstructor
-    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class TeamsDetails {
         private TeamDetails home;
         private TeamDetails away;
@@ -430,5 +407,37 @@ public class PalpiteController {
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class TeamDetails {
         private String name;
+    }
+
+    // DTOs para o endpoint /fixtures/events
+    @Getter @Setter @NoArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class ApiSportsEventsResponse {
+        @JsonProperty("response")
+        private List<EventData> response;
+    }
+
+    @Getter @Setter @NoArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class EventData {
+        private String type;
+    }
+
+    // Novo DTO para a resposta combinada
+    @Getter @Setter @NoArgsConstructor
+    public static class AnaliseCompletaDTO {
+        private String resultado;
+        private String gols;
+        private String btts;
+        private String cartoes;
+        private String escanteios;
+
+        public AnaliseCompletaDTO(String resultado, String gols, String btts, String cartoes, String escanteios) {
+            this.resultado = resultado;
+            this.gols = gols;
+            this.btts = btts;
+            this.cartoes = cartoes;
+            this.escanteios = escanteios;
+        }
     }
 }
