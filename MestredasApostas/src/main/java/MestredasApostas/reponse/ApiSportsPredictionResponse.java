@@ -1,40 +1,20 @@
 package MestredasApostas.reponse;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
 
-import java.util.List;
-import java.util.Map;
-
-@Getter
-@Setter
-@NoArgsConstructor
-@JsonIgnoreProperties(ignoreUnknown = true)
 public class ApiSportsPredictionResponse {
 
-    @JsonProperty("response")
-    private List<PredictionData> response;
+    private String resultado;
+    private String gols;
+    private String ambasMarcam;
+    private String cartoes;
+    private String escanteios;
 
-    @Getter
-    @Setter
-    @NoArgsConstructor
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    static
-    class PredictionData {
-        private PredictionDetails predictions;
-    }
+    public String getResultado() { return resultado; }
+    public void setResultado(String resultado) { this.resultado = resultado; }
 
-    @Getter
-    @Setter
-    @NoArgsConstructor
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    class PredictionDetails {
-        // Adicionei os campos 'advice' e 'btts' aqui para corresponder ao JSON da API
-        private String advice;
-        private boolean btts;
-    }
+    public String getGols() { return gols; }
+    public void setGols(String gols) { this.gols = gols; }
+
+    public String getAmbasMarcam() { return ambasMarcam; }
+    public void setAmbasMarcam(String ambasMarcam) { this.ambasMarcam = ambasMarcam; }
 }
-
