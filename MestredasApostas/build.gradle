@@ -1,8 +1,14 @@
 plugins {
 	id 'java'
-	// Corrija a versão do Spring Boot para 3.3.2
 	id 'org.springframework.boot' version '3.3.2'
 	id 'io.spring.dependency-management' version '1.1.5'
+	// Adicione o plugin 'application' aqui
+	id 'application'
+}
+
+// O bloco 'application' agora deve ser reconhecido
+application {
+	mainClass = 'MestredasApostas.crawler.JogoScraperRobustoFinal'
 }
 
 group = 'MestredasApostas'
@@ -11,12 +17,6 @@ version = '0.0.1-SNAPSHOT'
 java {
 	toolchain {
 		languageVersion = JavaLanguageVersion.of(17)
-	}
-}
-
-configurations {
-	compileOnly {
-		extendsFrom annotationProcessor
 	}
 }
 
@@ -33,16 +33,12 @@ dependencies {
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
 	implementation 'org.json:json:20240303'
+	implementation 'net.sourceforge.htmlunit:htmlunit:2.70.0'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
-	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-
-	// Adicione esta dependência da API do Gemini
-	implementation 'com.google.cloud:google-cloud-vertexai:1.1.0'
+	testImplementation 'org.junit.jupiter:junit-jupiter-api'
+	testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine'
 }
 
-tasks.named('test') {
-	useJUnitPlatform()
-}
 tasks.named('bootRun') {
 	systemProperty 'spring.devtools.restart.enabled', 'false'
 }

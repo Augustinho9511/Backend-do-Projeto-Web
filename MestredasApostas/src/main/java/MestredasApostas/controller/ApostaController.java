@@ -18,13 +18,6 @@ public class ApostaController {
     @Autowired
     private ApostaService apostaService;
 
-    // Removido: @Autowired private JogoService jogoService; // Esta linha será removida
-
-    // Se você tinha um construtor, ele deve ser ajustado para não incluir JogoService
-    // public ApostaController(ApostaService apostaService, JogoService jogoService) {
-    //     this.apostaService = apostaService;
-    //     this.jogoService = jogoService;
-    // }
 
     @GetMapping
     public ResponseEntity<List<Aposta>> getAllApostas() {
